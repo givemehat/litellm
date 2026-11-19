@@ -243,3 +243,29 @@ async def test_openai_file_operations_roundtrip(respx_mock: respx.MockRouter, mo
     assert delete_route.call_count == 1
     assert deleted.id == "file-abc123"
     assert deleted.deleted is True
+
+
+@pytest.mark.parametrize(
+    "func_name, kwargs",
+    [
+        ("create_file", {"file": ("test.jsonl", b'{"key": "value"}\n'), "purpose": "fine-tune"}),
+        ("file_retrieve", {"file_id": "file-123"}),
+        ("file_delete", {"file_id": "file-123"}),
+        ("file_list", {}),
+        ("file_content", {"file_id": "file-123"}),
+    ],
+    ids=["create_file", "file_retrieve", "file_delete", "file_list", "file_content"],
+)
+def test_files_unrecognized_custom_llm_provider_raises_bad_request_error(func_name, kwargs):
+    """
+    Test that calling file endpoints with an unrecognized custom_llm_provider
+    raises litellm.exceptions.BadRequestError (HTTP 400) instead of an unhandled ValueError (HTTP 500).
+    Resolves #52716.
+    """
+    func = getattr(litellm, func_name)
+    with pytest.raises(litellm.exceptions.BadRequestError) as exc_info:
+        func(custom_llm_provider="unsupported_provider", **kwargs)
+
+    assert exc_info.value.status_code == 400
+    assert "LiteLLM doesn't support unsupported_provider" in str(exc_info.value)
+

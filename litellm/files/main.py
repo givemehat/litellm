@@ -98,6 +98,23 @@ def _file_content_logging_obj(kwargs: dict[str, object], _is_async: bool) -> Lit
     )
 
 
+def _safe_get_provider_files_config(
+    model: str,
+    custom_llm_provider: str,
+):
+    """
+    Safely resolve provider config without raising ValueError for unrecognized providers.
+    """
+    try:
+        provider = LlmProviders(custom_llm_provider)
+    except (ValueError, TypeError):
+        return None
+    return ProviderConfigManager.get_provider_files_config(
+        model=model,
+        provider=provider,
+    )
+
+
 openai_files_instance: Final = OpenAIFilesAPI()
 azure_files_instance: Final = AzureOpenAIFilesAPI()
 bedrock_files_instance: Final = BedrockFilesHandler()
@@ -224,9 +241,9 @@ def create_file(
                 extra_body=extra_body,
             )
 
-        provider_config: Final = ProviderConfigManager.get_provider_files_config(
+        provider_config: Final = _safe_get_provider_files_config(
             model="",
-            provider=LlmProviders(custom_llm_provider),
+            custom_llm_provider=custom_llm_provider,
         )
         if provider_config is not None:
             response = base_llm_http_handler.create_file(
@@ -412,9 +429,9 @@ def file_retrieve(
             )
         else:
             # Try using provider config pattern (for Manus, Bedrock, etc.)
-            provider_config: Final = ProviderConfigManager.get_provider_files_config(
+            provider_config: Final = _safe_get_provider_files_config(
                 model="",
-                provider=LlmProviders(custom_llm_provider),
+                custom_llm_provider=custom_llm_provider,
             )
             if provider_config is not None:
                 litellm_params_dict: Final = get_litellm_params(**kwargs)
@@ -588,9 +605,9 @@ def file_delete(
             )
         else:
             # Try using provider config pattern (for Manus, Bedrock, etc.)
-            provider_config: Final = ProviderConfigManager.get_provider_files_config(
+            provider_config: Final = _safe_get_provider_files_config(
                 model="",
-                provider=LlmProviders(custom_llm_provider),
+                custom_llm_provider=custom_llm_provider,
             )
             if provider_config is not None:
                 litellm_params_dict["api_key"] = optional_params.api_key
@@ -719,9 +736,9 @@ def file_list(
         _is_async: Final = kwargs.pop("is_async", False) is True
 
         # Check if provider has a custom files config (e.g., Manus, Bedrock, Vertex AI)
-        provider_config: Final = ProviderConfigManager.get_provider_files_config(
+        provider_config: Final = _safe_get_provider_files_config(
             model="",
-            provider=LlmProviders(custom_llm_provider),
+            custom_llm_provider=custom_llm_provider,
         )
         if provider_config is not None:
             litellm_params_dict: Final = get_litellm_params(**kwargs)
@@ -933,9 +950,9 @@ def file_content(
             )
 
         # Check if provider has a custom files config (e.g., Anthropic, Manus)
-        provider_config: Final = ProviderConfigManager.get_provider_files_config(
+        provider_config: Final = _safe_get_provider_files_config(
             model="",
-            provider=LlmProviders(custom_llm_provider),
+            custom_llm_provider=custom_llm_provider,
         )
         if provider_config is not None:
             response = base_llm_http_handler.retrieve_file_content(
